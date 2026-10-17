@@ -14,8 +14,9 @@
 ----------------------------------------------------------------------------
 module Main where
 ----------------------------------------------------------------------------
-import           Control.Monad (void)
+import           Control.Monad (unless, void)
 import           Data.Maybe (isJust)
+import           Prelude hiding ((!!))
 ----------------------------------------------------------------------------
 import           Miso
 import qualified Miso.Html.Element as H
@@ -85,24 +86,26 @@ updateModel :: Action -> Effect context props Model Action
 updateModel = \case
   ReadFile input -> do
     dragging .= False
-    withSink $ \sink ->
-      files input >>= \case
-        [] -> pure ()
-        file : _ -> do
-          info <- fileInfo file
-          case checkFile info of
-            Just err -> sink (ReadFailed err)
-            Nothing -> do
-              sink (StartRead info)
-              reader <- newFileReader
-              setField reader "onload" =<< asyncCallback (do
-                result <- fromJSValUnchecked =<< reader ! "result"
-                sink (SetContent info result))
-              setField reader "onerror" =<< asyncCallback
-                (sink (ReadFailed ("Could not read " <> fileName info <> ".")))
-              void $ reader # "readAsText" $ [file]
-          -- Clear the input so picking the same file again fires "change"
-          setValue input ""
+    withSink $ \sink -> do
+      -- Index the FileList directly: 'files' expects a real Array, and a
+      -- FileList is only array-like
+      file <- (!! 0) =<< input ! "files"
+      noFile <- isUndefined file
+      unless noFile $ do
+        info <- fileInfo file
+        case checkFile info of
+          Just err -> sink (ReadFailed err)
+          Nothing -> do
+            sink (StartRead info)
+            reader <- newFileReader
+            setField reader "onload" =<< asyncCallback (do
+              result <- fromJSValUnchecked =<< reader ! "result"
+              sink (SetContent info result))
+            setField reader "onerror" =<< asyncCallback
+              (sink (ReadFailed ("Could not read " <> fileName info <> ".")))
+            void $ reader # "readAsText" $ [file]
+      -- Clear the input so picking the same file again fires "change"
+      setValue input ""
   StartRead info ->
     progress .= Reading info
   SetContent info content ->
