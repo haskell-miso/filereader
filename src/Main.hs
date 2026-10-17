@@ -49,8 +49,8 @@ data Model
   , _dragging :: Bool
   } deriving (Show, Eq)
 ----------------------------------------------------------------------------
-status :: Lens Model Status
-status = lens _status $ \r x -> r { _status = x }
+progress :: Lens Model Status
+progress = lens _status $ \r x -> r { _status = x }
 ----------------------------------------------------------------------------
 dragging :: Lens Model Bool
 dragging = lens _dragging $ \r x -> r { _dragging = x }
@@ -104,17 +104,17 @@ updateModel = \case
           -- Clear the input so picking the same file again fires "change"
           setValue input ""
   StartRead info ->
-    status .= Reading info
+    progress .= Reading info
   SetContent info content ->
-    status .= Loaded info content
+    progress .= Loaded info content
   ReadFailed err ->
-    status .= Failed err
+    progress .= Failed err
   DragEnter ->
     dragging .= True
   DragLeave ->
     dragging .= False
   Clear ->
-    status .= Idle
+    progress .= Idle
 ----------------------------------------------------------------------------
 fileInfo :: JSVal -> IO FileInfo
 fileInfo file =
